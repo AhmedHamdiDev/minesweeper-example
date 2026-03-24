@@ -2,6 +2,7 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.beans.binding.Bindings;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -14,7 +15,6 @@ import javafx.util.Duration;
 
 public class MinesweeperApp extends Application {
     private static final int R = 10, C = 10, M = 10;
-    private static final int CELL_SIZE = 52;
 
     private Board board;
     private Button[][] buttons;
@@ -27,8 +27,9 @@ public class MinesweeperApp extends Application {
     private int secondsElapsed;
     private int flagsPlaced;
     private boolean isDarkMode = true;
-    private Scene scene;
     private BorderPane root;
+    private GridPane grid;
+    private Scene scene;
 
     // ── Dark theme ────────────────────────────────────────────────
     private static final String D_BG           = "#1e1e2e";
@@ -73,11 +74,58 @@ public class MinesweeperApp extends Application {
         startTimer();
         updateUI();
 
-        scene = new Scene(root);
+        scene = new Scene(root, 600, 680);
+
+        // Rebind cell sizes whenever the window is resized
+        scene.widthProperty().addListener((obs, o, n) -> rebindCellSizes());
+        scene.heightProperty().addListener((obs, o, n) -> rebindCellSizes());
+
         stage.setScene(scene);
         stage.setTitle("Minesweeper");
-        stage.setResizable(false);
+        stage.setResizable(true); // re-enabled
         stage.show();
+
+        rebindCellSizes(); // initial bind after layout is ready
+    }
+
+    // ── Dynamic cell sizing ───────────────────────────────────────
+
+    private void rebindCellSizes() {
+        if (buttons == null) return;
+
+        // Reserve space for top bar (~80px) and padding (~32px) and grid gaps (~20px)
+        double availableW = scene.getWidth()  - 52;
+        double availableH = scene.getHeight() - 120;
+
+        // Cell size is the smaller of width-fit or height-fit to keep cells square
+        double cellW = Math.floor(availableW / C);
+        double cellH = Math.floor(availableH / R);
+        double cellSize = Math.max(32, Math.min(cellW, cellH)); // min 32px
+
+        // Font scales with cell size
+        double fontSize = Math.max(10, cellSize * 0.28);
+
+        for (int r = 0; r < R; r++) {
+            for (int c = 0; c < C; c++) {
+                Button btn = buttons[r][c];
+                btn.setPrefSize(cellSize, cellSize);
+                btn.setMinSize(cellSize, cellSize);
+                btn.setMaxSize(cellSize, cellSize);
+
+                // Re-apply style with updated font size to keep numbers legible
+                Cell cell = board.getCell(r, c);
+                if (cell.isRevealed() && !cell.isMine()) {
+                    String[] numColors = isDarkMode ? DARK_NUMBER_COLORS : LIGHT_NUMBER_COLORS;
+                    int n = cell.getNeighborMines();
+                    String color = (n > 0 && n <= 8)
+                            ? numColors[n]
+                            : (isDarkMode ? D_TEXT_DIM : L_TEXT_DIM);
+                    btn.setStyle(revealedStyle(n, numColors, fontSize));
+                } else if (!cell.isRevealed() && !cell.isFlagged()) {
+                    btn.setStyle(unrevealedStyle());
+                }
+            }
+        }
     }
 
     // ── Top bar ───────────────────────────────────────────────────
@@ -99,7 +147,7 @@ public class MinesweeperApp extends Application {
         statusLabel = new Label("");
         statusLabel.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
 
-        themeBtn = new Button(isDarkMode ? "☀ Light" : "🌙 Dark");
+        themeBtn = new Button(isDarkMode ? "☀ Light" : "★ Dark");
         themeBtn.setStyle(
             "-fx-font-size: 13px; -fx-padding: 4 10 4 10;" +
             "-fx-cursor: hand; -fx-border-radius: 6; -fx-background-radius: 6;"
@@ -116,20 +164,25 @@ public class MinesweeperApp extends Application {
     // ── Grid ──────────────────────────────────────────────────────
 
     private void buildGrid() {
-        GridPane grid = new GridPane();
+        grid = new GridPane();
         grid.setHgap(2);
         grid.setVgap(2);
+        grid.setAlignment(Pos.CENTER);
+
+        // Let the grid grow to fill available space
+        GridPane.setHgrow(grid, Priority.ALWAYS);
+        GridPane.setVgrow(grid, Priority.ALWAYS);
 
         buttons = new Button[R][C];
-        board = new Board(R, C, M);
+        board   = new Board(R, C, M);
         flagsPlaced = 0;
 
         for (int r = 0; r < R; r++) {
             for (int c = 0; c < C; c++) {
                 Button btn = new Button();
-                btn.setPrefSize(CELL_SIZE, CELL_SIZE);
-                btn.setMaxSize(CELL_SIZE, CELL_SIZE);
-                btn.setMinSize(CELL_SIZE, CELL_SIZE);
+                // Initial size — rebindCellSizes() will correct this after show()
+                btn.setPrefSize(52, 52);
+                btn.setMinSize(32, 32);
 
                 int rr = r, cc = c;
                 btn.setOnMouseClicked(e -> {
@@ -143,6 +196,7 @@ public class MinesweeperApp extends Application {
                         mineCountLabel.setText("💣 " + (M - flagsPlaced));
                     }
                     updateUI();
+                    rebindCellSizes();
                 });
 
                 buttons[r][c] = btn;
@@ -150,16 +204,21 @@ public class MinesweeperApp extends Application {
             }
         }
 
-        root.setCenter(grid);
+        // Wrap in a StackPane so it stays centered when window is very large
+        StackPane centerPane = new StackPane(grid);
+        centerPane.setAlignment(Pos.CENTER);
+        VBox.setVgrow(centerPane, Priority.ALWAYS);
+        root.setCenter(centerPane);
     }
 
     // ── Theme ─────────────────────────────────────────────────────
 
     private void toggleTheme() {
         isDarkMode = !isDarkMode;
-        themeBtn.setText(isDarkMode ? "☀ Light" : "🌙 Dark");
+        themeBtn.setText(isDarkMode ? "☀ Light" : "★ Dark");
         applyTheme();
         updateUI();
+        rebindCellSizes();
     }
 
     private void applyTheme() {
@@ -188,11 +247,10 @@ public class MinesweeperApp extends Application {
             });
         }
 
-        if (root.getCenter() instanceof GridPane grid) {
+        if (grid != null) {
             grid.setStyle("-fx-background-color: " + border + "; -fx-padding: 2;");
         }
 
-        // Re-color status label if game has already ended
         if (board != null && board.isWon()) {
             statusLabel.setStyle(
                 "-fx-font-size: 15px; -fx-font-weight: bold;" +
@@ -232,6 +290,7 @@ public class MinesweeperApp extends Application {
         applyTheme();
         startTimer();
         updateUI();
+        rebindCellSizes();
     }
 
     // ── UI update ─────────────────────────────────────────────────
@@ -272,7 +331,7 @@ public class MinesweeperApp extends Application {
         if (board.isGameOver()) {
             timer.stop();
             resetBtn.setText("😵");
-            statusLabel.setText("💥 Game Over!");
+            statusLabel.setText("✖ Game Over!");
             statusLabel.setStyle(
                 "-fx-font-size: 15px; -fx-font-weight: bold;" +
                 "-fx-text-fill: " + (isDarkMode ? "#f38ba8" : "#c62828") + ";"
@@ -280,7 +339,7 @@ public class MinesweeperApp extends Application {
         } else if (board.isWon()) {
             timer.stop();
             resetBtn.setText("😎");
-            statusLabel.setText("🏆 You Won!");
+            statusLabel.setText("★ You Won!");
             statusLabel.setStyle(
                 "-fx-font-size: 15px; -fx-font-weight: bold;" +
                 "-fx-text-fill: " + (isDarkMode ? "#a6e3a1" : "#2e7d32") + ";"
@@ -300,6 +359,10 @@ public class MinesweeperApp extends Application {
     }
 
     private String revealedStyle(int n, String[] numColors) {
+        return revealedStyle(n, numColors, 14);
+    }
+
+    private String revealedStyle(int n, String[] numColors, double fontSize) {
         String bg     = isDarkMode ? D_REVEALED : L_REVEALED;
         String border = isDarkMode ? D_BORDER   : L_BORDER;
         String color  = (n > 0 && n <= 8)
@@ -310,7 +373,7 @@ public class MinesweeperApp extends Application {
                "-fx-border-width: 1; -fx-background-radius: 3;" +
                "-fx-border-radius: 3; -fx-padding: 0;" +
                "-fx-text-fill: " + color + ";" +
-               "-fx-font-weight: bold; -fx-font-size: 14px;";
+               "-fx-font-weight: bold; -fx-font-size: " + fontSize + "px;";
     }
 
     private String flaggedStyle() {
@@ -326,7 +389,7 @@ public class MinesweeperApp extends Application {
     }
 
     private String mineStyle() {
-        String bg   = isDarkMode ? D_MINE   : L_MINE;
+        String bg   = isDarkMode ? D_MINE    : L_MINE;
         String text = isDarkMode ? "#1e1e2e" : "#ffffff";
         return "-fx-background-color: " + bg + ";" +
                "-fx-border-width: 1; -fx-background-radius: 3;" +
