@@ -1,5 +1,6 @@
 import java.util.Set;
-
+import java.util.HashSet;
+import java.security.SecureRandom;
 public class Board {
     private int rows;
     private int cols;
@@ -14,7 +15,6 @@ public class Board {
         this.totalMines = totalMines;
         this.grid = new Cell[rows][cols];
         initializeBoard();
-        // NOTE: mines are no longer placed in the constructor
     }
 
     private void initializeBoard() {
@@ -25,27 +25,18 @@ public class Board {
         }
     }
 
-    // NEW: builds a set of excluded positions (clicked cell + its neighbors)
-    private Set<Integer> getSafeZone(int row, int col) {
-        java.util.Set<Integer> safe = new java.util.HashSet<>();
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                int nr = row + dr;
-                int nc = col + dc;
-                if (inBounds(nr, nc)) {
-                    safe.add(nr * cols + nc); // encode (r,c) as single int
-                }
-            }
-        }
+   private Set<Integer> getSafeZone(int row, int col) {
+        Set<Integer> safe = new HashSet<>();
+        safe.add(row * cols + col);
         return safe;
     }
 
-    // NEW: mine placement now accepts a safe zone to exclude
     private void placeMines(java.util.Set<Integer> safeZone) {
         int placed = 0;
+        SecureRandom rng = new SecureRandom();
         while (placed < totalMines) {
-            int r = (int)(Math.random() * rows);
-            int c = (int)(Math.random() * cols);
+            int r = rng.nextInt(rows);
+            int c = rng.nextInt(cols);
             if (!grid[r][c].isMine() && !safeZone.contains(r * cols + c)) {
                 grid[r][c].setMine(true);
                 placed++;
@@ -82,7 +73,6 @@ public class Board {
         if (gameOver) return;
         if (!inBounds(row, col)) return;
 
-        // NEW: on first click, place mines avoiding the clicked area
         if (firstClick) {
             firstClick = false;
             placeMines(getSafeZone(row, col));

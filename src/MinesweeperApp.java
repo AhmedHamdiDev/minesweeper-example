@@ -2,7 +2,6 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
-import javafx.beans.binding.Bindings;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -14,7 +13,7 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 public class MinesweeperApp extends Application {
-    private static final int R = 10, C = 10, M = 10;
+    private static final int R = 10, C = 10, M = 11;
 
     private Board board;
     private Button[][] buttons;
@@ -31,7 +30,7 @@ public class MinesweeperApp extends Application {
     private GridPane grid;
     private Scene scene;
 
-    // ── Dark theme ────────────────────────────────────────────────
+    // Karanlık Tema Renkleri
     private static final String D_BG           = "#1e1e2e";
     private static final String D_UNREVEALED   = "#454158";
     private static final String D_REVEALED     = "#11111b";
@@ -42,7 +41,7 @@ public class MinesweeperApp extends Application {
     private static final String D_TEXT_DIM     = "#6c7086";
     private static final String D_TOPBAR       = "#181825";
 
-    // ── Light theme ───────────────────────────────────────────────
+    // Aydınlık Tema Renkleri
     private static final String L_BG           = "#e8eaf0";
     private static final String L_UNREVEALED   = "#c0c8d8";
     private static final String L_REVEALED     = "#f4f4f4";
@@ -53,7 +52,7 @@ public class MinesweeperApp extends Application {
     private static final String L_TEXT_DIM     = "#9aa0b0";
     private static final String L_TOPBAR       = "#d0d4de";
 
-    // ── Number colors ─────────────────────────────────────────────
+    // Sayıların Renkleri
     private static final String[] DARK_NUMBER_COLORS = {
         "", "#89b4fa", "#a6e3a1", "#f38ba8",
         "#74c7ec", "#fab387", "#89dceb", "#b4befe", "#cdd6f4"
@@ -76,33 +75,33 @@ public class MinesweeperApp extends Application {
 
         scene = new Scene(root, 600, 680);
 
-        // Rebind cell sizes whenever the window is resized
+        // Pencere boyutu değiştikçe ögelerin boyutlarını ona göre değiştiriyoruz
         scene.widthProperty().addListener((obs, o, n) -> rebindCellSizes());
         scene.heightProperty().addListener((obs, o, n) -> rebindCellSizes());
 
         stage.setScene(scene);
         stage.setTitle("Minesweeper");
-        stage.setResizable(true); // re-enabled
+        stage.setResizable(true);
         stage.show();
 
-        rebindCellSizes(); // initial bind after layout is ready
+        rebindCellSizes();
     }
 
-    // ── Dynamic cell sizing ───────────────────────────────────────
+    // Hücrelerin dinamik boyutlandırılması
 
     private void rebindCellSizes() {
         if (buttons == null) return;
 
-        // Reserve space for top bar (~80px) and padding (~32px) and grid gaps (~20px)
+        // Üstteki bar için (~80px) ve kenarlar (~32px) ve hücreler arası boşluklar (~20px) için yer ayırma
         double availableW = scene.getWidth()  - 52;
         double availableH = scene.getHeight() - 120;
 
-        // Cell size is the smaller of width-fit or height-fit to keep cells square
+        // Hücreler kare olsun diye
         double cellW = Math.floor(availableW / C);
         double cellH = Math.floor(availableH / R);
         double cellSize = Math.max(32, Math.min(cellW, cellH)); // min 32px
 
-        // Font scales with cell size
+        // Hücre boyutu değiştikçe font değişsin
         double fontSize = Math.max(10, cellSize * 0.28);
 
         for (int r = 0; r < R; r++) {
@@ -112,7 +111,7 @@ public class MinesweeperApp extends Application {
                 btn.setMinSize(cellSize, cellSize);
                 btn.setMaxSize(cellSize, cellSize);
 
-                // Re-apply style with updated font size to keep numbers legible
+                // Sayılar okunaklı kalsın diye hücre modu yeni font ile tekrar uygulanır
                 Cell cell = board.getCell(r, c);
                 if (cell.isRevealed() && !cell.isMine()) {
                     String[] numColors = isDarkMode ? DARK_NUMBER_COLORS : LIGHT_NUMBER_COLORS;
@@ -128,7 +127,7 @@ public class MinesweeperApp extends Application {
         }
     }
 
-    // ── Top bar ───────────────────────────────────────────────────
+    // Üstteki Bar
 
     private void buildTopBar() {
         mineCountLabel = new Label("💣 " + M);
@@ -161,7 +160,7 @@ public class MinesweeperApp extends Application {
         root.setTop(topBar);
     }
 
-    // ── Grid ──────────────────────────────────────────────────────
+    // Izgara
 
     private void buildGrid() {
         grid = new GridPane();
@@ -169,7 +168,7 @@ public class MinesweeperApp extends Application {
         grid.setVgap(2);
         grid.setAlignment(Pos.CENTER);
 
-        // Let the grid grow to fill available space
+        // Izgara müsait yerleri kaplasın
         GridPane.setHgrow(grid, Priority.ALWAYS);
         GridPane.setVgrow(grid, Priority.ALWAYS);
 
@@ -180,7 +179,7 @@ public class MinesweeperApp extends Application {
         for (int r = 0; r < R; r++) {
             for (int c = 0; c < C; c++) {
                 Button btn = new Button();
-                // Initial size — rebindCellSizes() will correct this after show()
+                // Başlangıçta hücre boyutu
                 btn.setPrefSize(52, 52);
                 btn.setMinSize(32, 32);
 
@@ -204,14 +203,14 @@ public class MinesweeperApp extends Application {
             }
         }
 
-        // Wrap in a StackPane so it stays centered when window is very large
+        // Ortada kalsın diye bir StackPane'de sarıyoruz
         StackPane centerPane = new StackPane(grid);
         centerPane.setAlignment(Pos.CENTER);
         VBox.setVgrow(centerPane, Priority.ALWAYS);
         root.setCenter(centerPane);
     }
 
-    // ── Theme ─────────────────────────────────────────────────────
+    // Tema
 
     private void toggleTheme() {
         isDarkMode = !isDarkMode;
@@ -264,7 +263,7 @@ public class MinesweeperApp extends Application {
         }
     }
 
-    // ── Timer ─────────────────────────────────────────────────────
+    // Timer
 
     private void startTimer() {
         secondsElapsed = 0;
@@ -277,7 +276,7 @@ public class MinesweeperApp extends Application {
         timer.play();
     }
 
-    // ── Reset ─────────────────────────────────────────────────────
+    // Reset
 
     private void resetGame() {
         if (timer != null) timer.stop();
@@ -293,7 +292,7 @@ public class MinesweeperApp extends Application {
         rebindCellSizes();
     }
 
-    // ── UI update ─────────────────────────────────────────────────
+    // UI güncelleme
 
     private void updateUI() {
         if (board == null || buttons == null) return;
@@ -347,7 +346,7 @@ public class MinesweeperApp extends Application {
         }
     }
 
-    // ── Cell styles ───────────────────────────────────────────────
+    // Hücre modları
 
     private String unrevealedStyle() {
         String bg     = isDarkMode ? D_UNREVEALED : L_UNREVEALED;
