@@ -1,131 +1,138 @@
 import java.util.Set;
 import java.util.HashSet;
 import java.security.SecureRandom;
+
 public class Board {
-    private int rows;
-    private int cols;
-    private int totalMines;
-    private Cell[][] grid;
-    private boolean gameOver = false;
-    private boolean firstClick = true; // NEW
+    private int satirSayisi;
+    private int sutunSayisi;
+    private int toplamMayin;
+    private Cell[][] izgara;
+    private boolean oyunBitti = false;
+    private boolean ilkTiklama = true;
 
-    public Board(int rows, int cols, int totalMines) {
-        this.rows = rows;
-        this.cols = cols;
-        this.totalMines = totalMines;
-        this.grid = new Cell[rows][cols];
-        initializeBoard();
+    public Board(int satirSayisi, int sutunSayisi, int toplamMayin) {
+        this.satirSayisi = satirSayisi;
+        this.sutunSayisi = sutunSayisi;
+        this.toplamMayin = toplamMayin;
+        this.izgara = new Cell[satirSayisi][sutunSayisi];
+        izgarayiBaslat();
     }
 
-    private void initializeBoard() {
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                grid[r][c] = new Cell();
+    private void izgarayiBaslat() {
+        for (int s = 0; s < satirSayisi; s++) {
+            for (int u = 0; u < sutunSayisi; u++) {
+                izgara[s][u] = new Cell();
             }
         }
     }
 
-   private Set<Integer> getSafeZone(int row, int col) {
-        Set<Integer> safe = new HashSet<>();
-        safe.add(row * cols + col);
-        return safe;
+    /** İlk tıklanan hücre ve komşuları güvenli bölge olarak işaretlenir. */
+    private Set<Integer> guvenliiBolgeHesapla(int satir, int sutun) {
+        Set<Integer> guvenli = new HashSet<>();
+        guvenli.add(satir * sutunSayisi + sutun);
+        return guvenli;
     }
 
-    private void placeMines(java.util.Set<Integer> safeZone) {
-        int placed = 0;
-        SecureRandom rng = new SecureRandom();
-        while (placed < totalMines) {
-            int r = rng.nextInt(rows);
-            int c = rng.nextInt(cols);
-            if (!grid[r][c].isMine() && !safeZone.contains(r * cols + c)) {
-                grid[r][c].setMine(true);
-                placed++;
+    private void mayinlariYerlestir(Set<Integer> guvenliiBolge) {
+        int yerlestirilen = 0;
+        SecureRandom rastgele = new SecureRandom();
+        while (yerlestirilen < toplamMayin) {
+            int s = rastgele.nextInt(satirSayisi);
+            int u = rastgele.nextInt(sutunSayisi);
+            if (!izgara[s][u].isMayinMi() && !guvenliiBolge.contains(s * sutunSayisi + u)) {
+                izgara[s][u].setMayin(true);
+                yerlestirilen++;
             }
         }
     }
 
-    private void calculateNeighbors() {
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (!grid[r][c].isMine()) {
-                    grid[r][c].setNeighborMines(countMinesAround(r, c));
+    private void komsuMayinlariHesapla() {
+        for (int s = 0; s < satirSayisi; s++) {
+            for (int u = 0; u < sutunSayisi; u++) {
+                if (!izgara[s][u].isMayinMi()) {
+                    izgara[s][u].setKomsuMayinSayisi(etrafindakiMayinlariSay(s, u));
                 }
             }
         }
     }
 
-    private int countMinesAround(int row, int col) {
-        int count = 0;
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                if (dr == 0 && dc == 0) continue;
-                int nr = row + dr;
-                int nc = col + dc;
-                if (inBounds(nr, nc) && grid[nr][nc].isMine()) {
-                    count++;
+    private int etrafindakiMayinlariSay(int satir, int sutun) {
+        int sayi = 0;
+        for (int ds = -1; ds <= 1; ds++) {
+            for (int du = -1; du <= 1; du++) {
+                if (ds == 0 && du == 0) continue;
+                int ys = satir + ds;
+                int yu = sutun + du;
+                if (sinirIcindeMi(ys, yu) && izgara[ys][yu].isMayinMi()) {
+                    sayi++;
                 }
             }
         }
-        return count;
+        return sayi;
     }
 
-    public void reveal(int row, int col) {
-        if (gameOver) return;
-        if (!inBounds(row, col)) return;
+    public void ac(int satir, int sutun) {
+        if (oyunBitti) return;
+        if (!sinirIcindeMi(satir, sutun)) return;
 
-        if (firstClick) {
-            firstClick = false;
-            placeMines(getSafeZone(row, col));
-            calculateNeighbors();
+        if (ilkTiklama) {
+            ilkTiklama = false;
+            mayinlariYerlestir(guvenliiBolgeHesapla(satir, sutun));
+            komsuMayinlariHesapla();
         }
 
-        Cell cell = grid[row][col];
-        if (cell.isRevealed() || cell.isFlagged()) return;
-        cell.reveal();
+        Cell hucre = izgara[satir][sutun];
+        if (hucre.isAcildiMi() || hucre.isIsaretlendi()) return;
+        hucre.ac();
 
-        if (cell.isMine()) {
-            gameOver = true;
-            revealAllMines();
+        if (hucre.isMayinMi()) {
+            oyunBitti = true;
+            tumMayinlariAc();
             return;
         }
 
-        if (cell.getNeighborMines() > 0) return;
+        // Boş hücre ise komşuları özyinelemeli aç
+        if (hucre.getKomsuMayinSayisi() > 0) return;
 
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                if (dr == 0 && dc == 0) continue;
-                reveal(row + dr, col + dc);
+        for (int ds = -1; ds <= 1; ds++) {
+            for (int du = -1; du <= 1; du++) {
+                if (ds == 0 && du == 0) continue;
+                ac(satir + ds, sutun + du);
             }
         }
     }
 
-    private void revealAllMines() {
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (grid[r][c].isMine()) grid[r][c].reveal();
+    private void tumMayinlariAc() {
+        for (int s = 0; s < satirSayisi; s++) {
+            for (int u = 0; u < sutunSayisi; u++) {
+                if (izgara[s][u].isMayinMi()) izgara[s][u].ac();
             }
         }
     }
 
-    private boolean inBounds(int r, int c) {
-        return r >= 0 && r < rows && c >= 0 && c < cols;
+    private boolean sinirIcindeMi(int s, int u) {
+        return s >= 0 && s < satirSayisi && u >= 0 && u < sutunSayisi;
     }
 
-    public Cell getCell(int r, int c) {
-        return grid[r][c];
+    public Cell getHucre(int s, int u) {
+        return izgara[s][u];
     }
 
-    public boolean isGameOver() {
-        return gameOver;
+    public boolean isOyunBitti() {
+        return oyunBitti;
     }
 
-    public boolean isWon() {
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                Cell cell = grid[r][c];
-                if (!cell.isMine() && !cell.isRevealed()) return false;
+    public boolean kazanildiMi() {
+        for (int s = 0; s < satirSayisi; s++) {
+            for (int u = 0; u < sutunSayisi; u++) {
+                Cell hucre = izgara[s][u];
+                if (!hucre.isMayinMi() && !hucre.isAcildiMi()) return false;
             }
         }
-        return !gameOver;
+        return !oyunBitti;
     }
+    public void reveal(int satir, int sutun) { ac(satir, sutun); }
+    public boolean isGameOver() { return isOyunBitti(); }
+    public boolean isWon() { return kazanildiMi(); }
+    public Cell getCell(int s, int u) { return getHucre(s, u); }
 }

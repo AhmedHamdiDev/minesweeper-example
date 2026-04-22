@@ -13,387 +13,395 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 public class MinesweeperApp extends Application {
-    private static final int R = 10, C = 10, M = 11;
 
-    private Board board;
-    private Button[][] buttons;
-    private Label mineCountLabel;
-    private Label timerLabel;
-    private Label statusLabel;
-    private Button resetBtn;
-    private Button themeBtn;
-    private Timeline timer;
-    private int secondsElapsed;
-    private int flagsPlaced;
-    private boolean isDarkMode = true;
-    private BorderPane root;
-    private GridPane grid;
-    private Scene scene;
+    // ── Oyun sabitleri ────────────────────────────────────────────────────────
+    private static final int SATIR_SAYISI  = 10;
+    private static final int SUTUN_SAYISI  = 10;
+    private static final int MAYIN_SAYISI  = 11;
 
-    // Karanlık Tema Renkleri
-    private static final String D_BG           = "#1e1e2e";
-    private static final String D_UNREVEALED   = "#454158";
-    private static final String D_REVEALED     = "#11111b";
-    private static final String D_FLAGGED      = "#524f6e";
-    private static final String D_MINE         = "#f38ba8";
-    private static final String D_BORDER       = "#6c7086";
-    private static final String D_TEXT         = "#cdd6f4";
-    private static final String D_TEXT_DIM     = "#6c7086";
-    private static final String D_TOPBAR       = "#181825";
+    // ── Oyun durumu ───────────────────────────────────────────────────────────
+    private Board tahta;
+    private Button[][] dugmeler;
+    private int yerlestirilenIsaret;
+    private int gecenSaniye;
 
-    // Aydınlık Tema Renkleri
-    private static final String L_BG           = "#e8eaf0";
-    private static final String L_UNREVEALED   = "#c0c8d8";
-    private static final String L_REVEALED     = "#f4f4f4";
-    private static final String L_FLAGGED      = "#b0b8cc";
-    private static final String L_MINE         = "#e57373";
-    private static final String L_BORDER       = "#9aa0b0";
-    private static final String L_TEXT         = "#1e1e2e";
-    private static final String L_TEXT_DIM     = "#9aa0b0";
-    private static final String L_TOPBAR       = "#d0d4de";
+    // ── Arayüz bileşenleri ────────────────────────────────────────────────────
+    private Label maynSayaciEtiketi;
+    private Label zamanlayiciEtiketi;
+    private Label durumEtiketi;
+    private Button sifirlaBtn;
+    private Button temaBtn;
+    private Timeline zamanlayici;
+    private boolean karanlikTema = true;
+    private BorderPane kokDuzen;
+    private GridPane izgaraDuzen;
+    private Scene sahne;
 
-    // Sayıların Renkleri
-    private static final String[] DARK_NUMBER_COLORS = {
+    // ── Karanlık Tema ─────────────────────────────────────────────────────────
+    private static final String KT_ARKAPLAN = "#1e1e2e";
+    private static final String KT_ACILMAMIS = "#454158";
+    private static final String KT_ACILMIS = "#11111b";
+    private static final String KT_ISARETLI = "#524f6e";
+    private static final String KT_MAYIN = "#f38ba8";
+    private static final String KT_CERCEVE = "#6c7086";
+    private static final String KT_YAZI = "#cdd6f4";
+    private static final String KT_YAZI_SOLUK = "#6c7086";
+    private static final String KT_UST_BAR = "#181825";
+
+    // ── Aydınlık Tema ─────────────────────────────────────────────────────────
+    private static final String AT_ARKAPLAN = "#e8eaf0";
+    private static final String AT_ACILMAMIS = "#c0c8d8";
+    private static final String AT_ACILMIS = "#f4f4f4";
+    private static final String AT_ISARETLI = "#b0b8cc";
+    private static final String AT_MAYIN = "#e57373";
+    private static final String AT_CERCEVE = "#9aa0b0";
+    private static final String AT_YAZI = "#1e1e2e";
+    private static final String AT_YAZI_SOLUK = "#9aa0b0";
+    private static final String AT_UST_BAR = "#d0d4de";
+
+    // ── Sayı renkleri ─────────────────────────────────────────────────────────
+    private static final String[] KARANLIK_SAYI_RENKLERI = {
         "", "#89b4fa", "#a6e3a1", "#f38ba8",
         "#74c7ec", "#fab387", "#89dceb", "#b4befe", "#cdd6f4"
     };
-    private static final String[] LIGHT_NUMBER_COLORS = {
+    private static final String[] AYDINLIK_SAYI_RENKLERI = {
         "", "#1565c0", "#2e7d32", "#c62828",
         "#0277bd", "#e65100", "#00838f", "#6a1b9a", "#37474f"
     };
 
+    // ─────────────────────────────────────────────────────────────────────────
+
     @Override
-    public void start(Stage stage) {
-        root = new BorderPane();
-        root.setPadding(new Insets(16));
+    public void start(Stage sahne) {
+        kokDuzen = new BorderPane();
+        kokDuzen.setPadding(new Insets(16));
 
-        buildTopBar();
-        buildGrid();
-        applyTheme();
-        startTimer();
-        updateUI();
+        ustBariOlustur();
+        izgarayiOlustur();
+        temayiUygula();
+        zamanlayiciBaslat();
+        arayuzuGuncelle();
 
-        scene = new Scene(root, 600, 680);
+        this.sahne = new Scene(kokDuzen, 600, 680);
 
-        // Pencere boyutu değiştikçe ögelerin boyutlarını ona göre değiştiriyoruz
-        scene.widthProperty().addListener((obs, o, n) -> rebindCellSizes());
-        scene.heightProperty().addListener((obs, o, n) -> rebindCellSizes());
+        // Pencere boyutu değiştikçe hücre boyutlarını yeniden hesapla
+        this.sahne.widthProperty().addListener((gozlemci, eski, yeni) -> hucreBoyutlariniGuncelle());
+        this.sahne.heightProperty().addListener((gozlemci, eski, yeni) -> hucreBoyutlariniGuncelle());
 
-        stage.setScene(scene);
-        stage.setTitle("Minesweeper");
-        stage.setResizable(true);
-        stage.show();
+        sahne.setScene(this.sahne);
+        sahne.setTitle("Mayın Tarlası");
+        sahne.setResizable(true);
+        sahne.show();
 
-        rebindCellSizes();
+        hucreBoyutlariniGuncelle();
     }
 
-    // Hücrelerin dinamik boyutlandırılması
+    // ── Hücre boyutlarının dinamik hesaplanması ───────────────────────────────
 
-    private void rebindCellSizes() {
-        if (buttons == null) return;
+    private void hucreBoyutlariniGuncelle() {
+        if (dugmeler == null) return;
 
-        // Üstteki bar için (~80px) ve kenarlar (~32px) ve hücreler arası boşluklar (~20px) için yer ayırma
-        double availableW = scene.getWidth()  - 52;
-        double availableH = scene.getHeight() - 120;
+        // Üst bar (~80px), kenarlar (~32px) ve hücreler arası boşluklar için pay bırak
+        double kullanilabilirGenislik  = sahne.getWidth()  - 52;
+        double kullanilabilirYukseklik = sahne.getHeight() - 120;
 
-        // Hücreler kare olsun diye
-        double cellW = Math.floor(availableW / C);
-        double cellH = Math.floor(availableH / R);
-        double cellSize = Math.max(32, Math.min(cellW, cellH)); // min 32px
+        double hucrreGenisligi  = Math.floor(kullanilabilirGenislik  / SUTUN_SAYISI);
+        double hucrreYuksekligi = Math.floor(kullanilabilirYukseklik / SATIR_SAYISI);
+        double hucreBoyutu = Math.max(32, Math.min(hucrreGenisligi, hucrreYuksekligi));
 
-        // Hücre boyutu değiştikçe font değişsin
-        double fontSize = Math.max(10, cellSize * 0.28);
+        // Hücre büyüdükçe yazı tipi de orantılı büyüsün
+        double yaziBoyutu = Math.max(10, hucreBoyutu * 0.28);
 
-        for (int r = 0; r < R; r++) {
-            for (int c = 0; c < C; c++) {
-                Button btn = buttons[r][c];
-                btn.setPrefSize(cellSize, cellSize);
-                btn.setMinSize(cellSize, cellSize);
-                btn.setMaxSize(cellSize, cellSize);
+        for (int s = 0; s < SATIR_SAYISI; s++) {
+            for (int u = 0; u < SUTUN_SAYISI; u++) {
+                Button btn  = dugmeler[s][u];
+                btn.setPrefSize(hucreBoyutu, hucreBoyutu);
+                btn.setMinSize(hucreBoyutu, hucreBoyutu);
+                btn.setMaxSize(hucreBoyutu, hucreBoyutu);
 
-                // Sayılar okunaklı kalsın diye hücre modu yeni font ile tekrar uygulanır
-                Cell cell = board.getCell(r, c);
-                if (cell.isRevealed() && !cell.isMine()) {
-                    String[] numColors = isDarkMode ? DARK_NUMBER_COLORS : LIGHT_NUMBER_COLORS;
-                    int n = cell.getNeighborMines();
-                    String color = (n > 0 && n <= 8)
-                            ? numColors[n]
-                            : (isDarkMode ? D_TEXT_DIM : L_TEXT_DIM);
-                    btn.setStyle(revealedStyle(n, numColors, fontSize));
-                } else if (!cell.isRevealed() && !cell.isFlagged()) {
-                    btn.setStyle(unrevealedStyle());
+                // Açılmış sayı hücrelerinde yazı boyutunu güncelle
+                Cell hucre = tahta.getHucre(s, u);
+                if (hucre.isAcildiMi() && !hucre.isMayinMi()) {
+                    String[] sayiRenkleri = karanlikTema ? KARANLIK_SAYI_RENKLERI : AYDINLIK_SAYI_RENKLERI;
+                    int komsular = hucre.getKomsuMayinSayisi();
+                    btn.setStyle(acilmisHucreTarzi(komsular, sayiRenkleri, yaziBoyutu));
+                } else if (!hucre.isAcildiMi() && !hucre.isIsaretlendi()) {
+                    btn.setStyle(acilmamisHucreTarzi());
                 }
             }
         }
     }
 
-    // Üstteki Bar
+    // ── Üst Bar ───────────────────────────────────────────────────────────────
 
-    private void buildTopBar() {
-        mineCountLabel = new Label("💣 " + M);
-        mineCountLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+    private void ustBariOlustur() {
+        maynSayaciEtiketi = new Label("💣 " + MAYIN_SAYISI);
+        maynSayaciEtiketi.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
-        resetBtn = new Button("😊");
-        resetBtn.setStyle(
+        sifirlaBtn = new Button("😊");
+        sifirlaBtn.setStyle(
             "-fx-font-size: 18px; -fx-padding: 4 12 4 12;" +
             "-fx-cursor: hand; -fx-border-radius: 6; -fx-background-radius: 6;"
         );
-        resetBtn.setOnAction(e -> resetGame());
+        sifirlaBtn.setOnAction(olay -> oyunuSifirla());
 
-        timerLabel = new Label("⏱ 0s");
-        timerLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        zamanlayiciEtiketi = new Label("⏱ 0s");
+        zamanlayiciEtiketi.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
-        statusLabel = new Label("");
-        statusLabel.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+        durumEtiketi = new Label("");
+        durumEtiketi.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
 
-        themeBtn = new Button(isDarkMode ? "☀ Light" : "★ Dark");
-        themeBtn.setStyle(
+        temaBtn = new Button(karanlikTema ? "☀ Aydınlık" : "★ Karanlık");
+        temaBtn.setStyle(
             "-fx-font-size: 13px; -fx-padding: 4 10 4 10;" +
             "-fx-cursor: hand; -fx-border-radius: 6; -fx-background-radius: 6;"
         );
-        themeBtn.setOnAction(e -> toggleTheme());
+        temaBtn.setOnAction(olay -> temaDegistir());
 
-        HBox topBar = new HBox(mineCountLabel, resetBtn, timerLabel, statusLabel, themeBtn);
-        topBar.setAlignment(Pos.CENTER);
-        topBar.setSpacing(16);
-        topBar.setPadding(new Insets(0, 0, 12, 0));
-        root.setTop(topBar);
+        HBox ustBar = new HBox(maynSayaciEtiketi, sifirlaBtn, zamanlayiciEtiketi, durumEtiketi, temaBtn);
+        ustBar.setAlignment(Pos.CENTER);
+        ustBar.setSpacing(16);
+        ustBar.setPadding(new Insets(0, 0, 12, 0));
+        kokDuzen.setTop(ustBar);
     }
 
-    // Izgara
+    // ── Izgara ────────────────────────────────────────────────────────────────
 
-    private void buildGrid() {
-        grid = new GridPane();
-        grid.setHgap(2);
-        grid.setVgap(2);
-        grid.setAlignment(Pos.CENTER);
+    private void izgarayiOlustur() {
+        izgaraDuzen = new GridPane();
+        izgaraDuzen.setHgap(2);
+        izgaraDuzen.setVgap(2);
+        izgaraDuzen.setAlignment(Pos.CENTER);
 
-        // Izgara müsait yerleri kaplasın
-        GridPane.setHgrow(grid, Priority.ALWAYS);
-        GridPane.setVgrow(grid, Priority.ALWAYS);
+        GridPane.setHgrow(izgaraDuzen, Priority.ALWAYS);
+        GridPane.setVgrow(izgaraDuzen, Priority.ALWAYS);
 
-        buttons = new Button[R][C];
-        board   = new Board(R, C, M);
-        flagsPlaced = 0;
+        dugmeler        = new Button[SATIR_SAYISI][SUTUN_SAYISI];
+        tahta           = new Board(SATIR_SAYISI, SUTUN_SAYISI, MAYIN_SAYISI);
+        yerlestirilenIsaret = 0;
 
-        for (int r = 0; r < R; r++) {
-            for (int c = 0; c < C; c++) {
+        for (int s = 0; s < SATIR_SAYISI; s++) {
+            for (int u = 0; u < SUTUN_SAYISI; u++) {
                 Button btn = new Button();
-                // Başlangıçta hücre boyutu
                 btn.setPrefSize(52, 52);
                 btn.setMinSize(32, 32);
 
-                int rr = r, cc = c;
-                btn.setOnMouseClicked(e -> {
-                    if (board.isGameOver() || board.isWon()) return;
-                    if (e.getButton() == MouseButton.PRIMARY) {
-                        board.reveal(rr, cc);
-                    } else if (e.getButton() == MouseButton.SECONDARY) {
-                        boolean wasFlagged = board.getCell(rr, cc).isFlagged();
-                        board.getCell(rr, cc).toggleFlag();
-                        flagsPlaced += wasFlagged ? -1 : 1;
-                        mineCountLabel.setText("💣 " + (M - flagsPlaced));
+                int satirNo = s, sutunNo = u;
+                btn.setOnMouseClicked(olay -> {
+                    if (tahta.isOyunBitti() || tahta.kazanildiMi()) return;
+
+                    if (olay.getButton() == MouseButton.PRIMARY) {
+                        // Sol tık: hücreyi aç
+                        tahta.ac(satirNo, sutunNo);
+                    } else if (olay.getButton() == MouseButton.SECONDARY) {
+                        // Sağ tık: bayrak koy / kaldır
+                        boolean isaretliydi = tahta.getHucre(satirNo, sutunNo).isIsaretlendi();
+                        tahta.getHucre(satirNo, sutunNo).isaretiBegistir();
+                        yerlestirilenIsaret += isaretliydi ? -1 : 1;
+                        maynSayaciEtiketi.setText("💣 " + (MAYIN_SAYISI - yerlestirilenIsaret));
                     }
-                    updateUI();
-                    rebindCellSizes();
+
+                    arayuzuGuncelle();
+                    hucreBoyutlariniGuncelle();
                 });
 
-                buttons[r][c] = btn;
-                grid.add(btn, c, r);
+                dugmeler[s][u] = btn;
+                izgaraDuzen.add(btn, u, s);
             }
         }
 
-        // Ortada kalsın diye bir StackPane'de sarıyoruz
-        StackPane centerPane = new StackPane(grid);
-        centerPane.setAlignment(Pos.CENTER);
-        VBox.setVgrow(centerPane, Priority.ALWAYS);
-        root.setCenter(centerPane);
+        StackPane merkezPanel = new StackPane(izgaraDuzen);
+        merkezPanel.setAlignment(Pos.CENTER);
+        VBox.setVgrow(merkezPanel, Priority.ALWAYS);
+        kokDuzen.setCenter(merkezPanel);
     }
 
-    // Tema
+    // ── Tema ──────────────────────────────────────────────────────────────────
 
-    private void toggleTheme() {
-        isDarkMode = !isDarkMode;
-        themeBtn.setText(isDarkMode ? "☀ Light" : "★ Dark");
-        applyTheme();
-        updateUI();
-        rebindCellSizes();
+    private void temaDegistir() {
+        karanlikTema = !karanlikTema;
+        temaBtn.setText(karanlikTema ? "☀ Aydınlık" : "★ Karanlık");
+        temayiUygula();
+        arayuzuGuncelle();
+        hucreBoyutlariniGuncelle();
     }
 
-    private void applyTheme() {
-        String bg     = isDarkMode ? D_BG     : L_BG;
-        String topbar = isDarkMode ? D_TOPBAR : L_TOPBAR;
-        String text   = isDarkMode ? D_TEXT   : L_TEXT;
-        String border = isDarkMode ? D_BORDER : L_BORDER;
+    private void temayiUygula() {
+        String arkaplan  = karanlikTema ? KT_ARKAPLAN  : AT_ARKAPLAN;
+        String ustBarRng = karanlikTema ? KT_UST_BAR   : AT_UST_BAR;
+        String yaziRengi = karanlikTema ? KT_YAZI      : AT_YAZI;
+        String cerceveRg = karanlikTema ? KT_CERCEVE   : AT_CERCEVE;
 
-        root.setStyle("-fx-background-color: " + bg + ";");
+        kokDuzen.setStyle("-fx-background-color: " + arkaplan + ";");
 
-        if (root.getTop() instanceof HBox topBar) {
-            topBar.setStyle(
-                "-fx-background-color: " + topbar + ";" +
+        if (kokDuzen.getTop() instanceof HBox ustBar) {
+            ustBar.setStyle(
+                "-fx-background-color: " + ustBarRng + ";" +
                 "-fx-background-radius: 8; -fx-padding: 8 12 8 12;"
             );
-            topBar.getChildren().forEach(node -> {
-                if (node instanceof Label lbl) {
-                    lbl.setStyle(lbl.getStyle() + "-fx-text-fill: " + text + ";");
-                } else if (node instanceof Button btn) {
+            ustBar.getChildren().forEach(dugum -> {
+                if (dugum instanceof Label etiket) {
+                    etiket.setStyle(etiket.getStyle() + "-fx-text-fill: " + yaziRengi + ";");
+                } else if (dugum instanceof Button btn) {
                     btn.setStyle(btn.getStyle() +
-                        "-fx-background-color: " + (isDarkMode ? "#313244" : "#c8cdd8") + ";" +
-                        "-fx-text-fill: " + text + ";" +
-                        "-fx-border-color: " + border + ";"
+                        "-fx-background-color: " + (karanlikTema ? "#313244" : "#c8cdd8") + ";" +
+                        "-fx-text-fill: " + yaziRengi + ";" +
+                        "-fx-border-color: " + cerceveRg + ";"
                     );
                 }
             });
         }
 
-        if (grid != null) {
-            grid.setStyle("-fx-background-color: " + border + "; -fx-padding: 2;");
+        if (izgaraDuzen != null) {
+            izgaraDuzen.setStyle("-fx-background-color: " + cerceveRg + "; -fx-padding: 2;");
         }
 
-        if (board != null && board.isWon()) {
-            statusLabel.setStyle(
+        // Oyun bitmişse durum etiketi rengini güncelle
+        if (tahta != null && tahta.kazanildiMi()) {
+            durumEtiketi.setStyle(
                 "-fx-font-size: 15px; -fx-font-weight: bold;" +
-                "-fx-text-fill: " + (isDarkMode ? "#a6e3a1" : "#2e7d32") + ";"
+                "-fx-text-fill: " + (karanlikTema ? "#a6e3a1" : "#2e7d32") + ";"
             );
-        } else if (board != null && board.isGameOver()) {
-            statusLabel.setStyle(
+        } else if (tahta != null && tahta.isOyunBitti()) {
+            durumEtiketi.setStyle(
                 "-fx-font-size: 15px; -fx-font-weight: bold;" +
-                "-fx-text-fill: " + (isDarkMode ? "#f38ba8" : "#c62828") + ";"
+                "-fx-text-fill: " + (karanlikTema ? "#f38ba8" : "#c62828") + ";"
             );
         }
     }
 
-    // Timer
+    // ── Zamanlayıcı ───────────────────────────────────────────────────────────
 
-    private void startTimer() {
-        secondsElapsed = 0;
-        if (timer != null) timer.stop();
-        timer = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-            secondsElapsed++;
-            timerLabel.setText("⏱ " + secondsElapsed + "s");
+    private void zamanlayiciBaslat() {
+        gecenSaniye = 0;
+        if (zamanlayici != null) zamanlayici.stop();
+        zamanlayici = new Timeline(new KeyFrame(Duration.seconds(1), olay -> {
+            gecenSaniye++;
+            zamanlayiciEtiketi.setText("⏱ " + gecenSaniye + "s");
         }));
-        timer.setCycleCount(Animation.INDEFINITE);
-        timer.play();
+        zamanlayici.setCycleCount(Animation.INDEFINITE);
+        zamanlayici.play();
     }
 
-    // Reset
+    // ── Oyunu sıfırla ─────────────────────────────────────────────────────────
 
-    private void resetGame() {
-        if (timer != null) timer.stop();
-        flagsPlaced = 0;
-        mineCountLabel.setText("💣 " + M);
-        timerLabel.setText("⏱ 0s");
-        resetBtn.setText("😊");
-        statusLabel.setText("");
-        buildGrid();
-        applyTheme();
-        startTimer();
-        updateUI();
-        rebindCellSizes();
+    private void oyunuSifirla() {
+        if (zamanlayici != null) zamanlayici.stop();
+        yerlestirilenIsaret = 0;
+        maynSayaciEtiketi.setText("💣 " + MAYIN_SAYISI);
+        zamanlayiciEtiketi.setText("⏱ 0s");
+        sifirlaBtn.setText("😊");
+        durumEtiketi.setText("");
+        izgarayiOlustur();
+        temayiUygula();
+        zamanlayiciBaslat();
+        arayuzuGuncelle();
+        hucreBoyutlariniGuncelle();
     }
 
-    // UI güncelleme
+    // ── Arayüz güncelleme ─────────────────────────────────────────────────────
 
-    private void updateUI() {
-        if (board == null || buttons == null) return;
-        String[] numColors = isDarkMode ? DARK_NUMBER_COLORS : LIGHT_NUMBER_COLORS;
+    private void arayuzuGuncelle() {
+        if (tahta == null || dugmeler == null) return;
+        String[] sayiRenkleri = karanlikTema ? KARANLIK_SAYI_RENKLERI : AYDINLIK_SAYI_RENKLERI;
 
-        for (int r = 0; r < R; r++) {
-            for (int c = 0; c < C; c++) {
-                Cell cell  = board.getCell(r, c);
-                Button btn = buttons[r][c];
+        for (int s = 0; s < SATIR_SAYISI; s++) {
+            for (int u = 0; u < SUTUN_SAYISI; u++) {
+                Cell hucre = tahta.getHucre(s, u);
+                Button btn = dugmeler[s][u];
 
-                if (cell.isRevealed()) {
-                    if (cell.isMine()) {
+                if (hucre.isAcildiMi()) {
+                    if (hucre.isMayinMi()) {
                         btn.setText("X");
-                        btn.setStyle(mineStyle());
+                        btn.setStyle(mayinHucreTarzi());
                     } else {
-                        int n = cell.getNeighborMines();
-                        btn.setText(n == 0 ? "" : String.valueOf(n));
-                        btn.setStyle(revealedStyle(n, numColors));
+                        int komsular = hucre.getKomsuMayinSayisi();
+                        btn.setText(komsular == 0 ? "" : String.valueOf(komsular));
+                        btn.setStyle(acilmisHucreTarzi(komsular, sayiRenkleri));
                     }
                     btn.setDisable(true);
 
-                } else if (cell.isFlagged()) {
+                } else if (hucre.isIsaretlendi()) {
                     btn.setText("F");
-                    btn.setStyle(flaggedStyle());
+                    btn.setStyle(isaretliHucreTarzi());
                     btn.setDisable(false);
 
                 } else {
                     btn.setText("");
-                    btn.setStyle(unrevealedStyle());
+                    btn.setStyle(acilmamisHucreTarzi());
                     btn.setDisable(false);
                 }
             }
         }
 
-        if (board.isGameOver()) {
-            timer.stop();
-            resetBtn.setText("😵");
-            statusLabel.setText("✖ Game Over!");
-            statusLabel.setStyle(
+        if (tahta.isOyunBitti()) {
+            zamanlayici.stop();
+            sifirlaBtn.setText("😵");
+            durumEtiketi.setText("✖ Oyun Bitti!");
+            durumEtiketi.setStyle(
                 "-fx-font-size: 15px; -fx-font-weight: bold;" +
-                "-fx-text-fill: " + (isDarkMode ? "#f38ba8" : "#c62828") + ";"
+                "-fx-text-fill: " + (karanlikTema ? "#f38ba8" : "#c62828") + ";"
             );
-        } else if (board.isWon()) {
-            timer.stop();
-            resetBtn.setText("😎");
-            statusLabel.setText("★ You Won!");
-            statusLabel.setStyle(
+        } else if (tahta.kazanildiMi()) {
+            zamanlayici.stop();
+            sifirlaBtn.setText("😎");
+            durumEtiketi.setText("★ Kazandınız!");
+            durumEtiketi.setStyle(
                 "-fx-font-size: 15px; -fx-font-weight: bold;" +
-                "-fx-text-fill: " + (isDarkMode ? "#a6e3a1" : "#2e7d32") + ";"
+                "-fx-text-fill: " + (karanlikTema ? "#a6e3a1" : "#2e7d32") + ";"
             );
         }
     }
 
-    // Hücre modları
+    // ── Hücre görsel stilleri ─────────────────────────────────────────────────
 
-    private String unrevealedStyle() {
-        String bg     = isDarkMode ? D_UNREVEALED : L_UNREVEALED;
-        String border = isDarkMode ? D_BORDER     : L_BORDER;
-        return "-fx-background-color: " + bg + ";" +
-               "-fx-border-color: " + border + ";" +
+    private String acilmamisHucreTarzi() {
+        String arkaplan = karanlikTema ? KT_ACILMAMIS : AT_ACILMAMIS;
+        String cerceve = karanlikTema ? KT_CERCEVE   : AT_CERCEVE;
+        return "-fx-background-color: " + arkaplan + ";" +
+               "-fx-border-color: " + cerceve + ";" +
                "-fx-border-width: 1; -fx-background-radius: 3;" +
                "-fx-border-radius: 3; -fx-padding: 0; -fx-cursor: hand;";
     }
 
-    private String revealedStyle(int n, String[] numColors) {
-        return revealedStyle(n, numColors, 14);
+    /** Varsayılan yazı boyutu (14px) ile açılmış hücre tarzi. */
+    private String acilmisHucreTarzi(int komsular, String[] sayiRenkleri) {
+        return acilmisHucreTarzi(komsular, sayiRenkleri, 14);
     }
 
-    private String revealedStyle(int n, String[] numColors, double fontSize) {
-        String bg     = isDarkMode ? D_REVEALED : L_REVEALED;
-        String border = isDarkMode ? D_BORDER   : L_BORDER;
-        String color  = (n > 0 && n <= 8)
-                        ? numColors[n]
-                        : (isDarkMode ? D_TEXT_DIM : L_TEXT_DIM);
-        return "-fx-background-color: " + bg + ";" +
-               "-fx-border-color: " + border + ";" +
+    private String acilmisHucreTarzi(int komsular, String[] sayiRenkleri, double yaziBoyutu) {
+        String arkaplan = karanlikTema ? KT_ACILMIS    : AT_ACILMIS;
+        String cerceve = karanlikTema ? KT_CERCEVE    : AT_CERCEVE;
+        String yaziRengi = (komsular > 0 && komsular <= 8)
+                           ? sayiRenkleri[komsular]
+                           : (karanlikTema ? KT_YAZI_SOLUK : AT_YAZI_SOLUK);
+        return "-fx-background-color: " + arkaplan + ";" +
+               "-fx-border-color: " + cerceve + ";" +
                "-fx-border-width: 1; -fx-background-radius: 3;" +
                "-fx-border-radius: 3; -fx-padding: 0;" +
-               "-fx-text-fill: " + color + ";" +
-               "-fx-font-weight: bold; -fx-font-size: " + fontSize + "px;";
+               "-fx-text-fill: " + yaziRengi + ";" +
+               "-fx-font-weight: bold; -fx-font-size: " + yaziBoyutu + "px;";
     }
 
-    private String flaggedStyle() {
-        String bg     = isDarkMode ? D_FLAGGED : L_FLAGGED;
-        String border = isDarkMode ? D_BORDER  : L_BORDER;
-        String text   = isDarkMode ? "#f38ba8" : "#c62828";
-        return "-fx-background-color: " + bg + ";" +
-               "-fx-border-color: " + border + ";" +
+    private String isaretliHucreTarzi() {
+        String arkaplan = karanlikTema ? KT_ISARETLI : AT_ISARETLI;
+        String cerceve = karanlikTema ? KT_CERCEVE  : AT_CERCEVE;
+        String yaziRengi = karanlikTema ? "#f38ba8"   : "#c62828";
+        return "-fx-background-color: " + arkaplan + ";" +
+               "-fx-border-color: " + cerceve + ";" +
                "-fx-border-width: 1; -fx-background-radius: 3;" +
                "-fx-border-radius: 3; -fx-padding: 0;" +
-               "-fx-text-fill: " + text + ";" +
+               "-fx-text-fill: " + yaziRengi + ";" +
                "-fx-font-weight: bold; -fx-font-size: 14px; -fx-cursor: hand;";
     }
 
-    private String mineStyle() {
-        String bg   = isDarkMode ? D_MINE    : L_MINE;
-        String text = isDarkMode ? "#1e1e2e" : "#ffffff";
-        return "-fx-background-color: " + bg + ";" +
+    private String mayinHucreTarzi() {
+        String arkaplan = karanlikTema ? KT_MAYIN    : AT_MAYIN;
+        String yaziRengi = karanlikTema ? "#1e1e2e"   : "#ffffff";
+        return "-fx-background-color: " + arkaplan + ";" +
                "-fx-border-width: 1; -fx-background-radius: 3;" +
                "-fx-border-radius: 3; -fx-padding: 0;" +
-               "-fx-text-fill: " + text + ";" +
+               "-fx-text-fill: " + yaziRengi + ";" +
                "-fx-font-weight: bold; -fx-font-size: 14px;";
     }
 

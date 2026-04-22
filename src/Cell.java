@@ -1,53 +1,61 @@
 public class Cell {
-    private boolean isMine;
-    private boolean isRevealed;
-    private boolean isFlagged;
-    private int neighborMines;
+    private boolean mayinMi;
+    private boolean acildiMi;
+    private boolean isaretlendi;
+    private int komsuMayinSayisi;
 
     public Cell() {
-        this.isMine = false;
-        this.isRevealed = false;
-        this.isFlagged = false;
-        this.neighborMines = 0;
+        this.mayinMi = false;
+        this.acildiMi = false;
+        this.isaretlendi = false;
+        this.komsuMayinSayisi = 0;
     }
 
-    public boolean isMine() {
-        return isMine;
+    public boolean isMayinMi() {
+        return mayinMi;
     }
 
-    public boolean isRevealed() {
-        return isRevealed;
+    public boolean isAcildiMi() {
+        return acildiMi;
     }
 
-    public boolean isFlagged() {
-        return isFlagged;
+    public boolean isIsaretlendi() {
+        return isaretlendi;
     }
 
-    public int getNeighborMines() {
-        return neighborMines;
+    public int getKomsuMayinSayisi() {
+        return komsuMayinSayisi;
     }
 
-    public void setMine(boolean isMine) {
-        this.isMine = isMine;
+    public void setMayin(boolean mayinMi) {
+        this.mayinMi = mayinMi;
     }
 
-    public void setNeighborMines(int count) {
-        this.neighborMines = count;
+    public void setKomsuMayinSayisi(int sayi) {
+        this.komsuMayinSayisi = sayi;
     }
 
-    public void reveal() {
-        if (!isFlagged) {
-            this.isRevealed = true;
+    public void ac() {
+        if (!isaretlendi) {
+            this.acildiMi = true;
         }
     }
 
-    public void toggleFlag() {
-        if (!isRevealed) {
-            this.isFlagged = !this.isFlagged;
+    public void isaretiBegistir() {
+        if (!acildiMi) {
+            this.isaretlendi = !this.isaretlendi;
         }
     }
 
-    public boolean isEmpty() {
-        return neighborMines == 0 && !isMine;
+    public boolean bosHucreMi() {
+        return komsuMayinSayisi == 0 && !mayinMi;
     }
+
+    public boolean isMine() { return mayinMi; }
+    public boolean isRevealed() { return acildiMi; }
+    public boolean isFlagged() { return isaretlendi; }
+    public int getNeighborMines() { return komsuMayinSayisi; }
+    public void reveal() { ac(); }
+    public void toggleFlag() { isaretiBegistir(); }
+    public boolean isEmpty() { return bosHucreMi(); }
 }
